@@ -310,6 +310,20 @@ Win32MainWindowCallback(HWND Window,
     return(Result);
 }
 
+internal char* 
+GetRomName(char* CommandLine)
+{
+    while (char* Quote = strstr(CommandLine, "\""))
+    {
+        for (int i=(int)(Quote - CommandLine); i<strlen(CommandLine); i++)
+        {
+            CommandLine[i] = CommandLine[i+1];
+        }
+    }
+
+    return CommandLine;
+}
+
 
 int CALLBACK
 WinMain(HINSTANCE Instance,
@@ -361,7 +375,7 @@ WinMain(HINSTANCE Instance,
             SizeDiff.y = (WindowRect.bottom - WindowRect.top) - ClientRect.bottom;
             MoveWindow(Window, WindowRect.left, WindowRect.top, Width + SizeDiff.x + 20, Height + SizeDiff.y + 20, TRUE);
 
-            LoadRom(&chip, "Space Invaders.ch8");
+            LoadRom(&chip, GetRomName(CommandLine));
             chip.PC = 0x200;
 
             Input input = {0};
