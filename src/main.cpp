@@ -31,7 +31,7 @@ struct win32_offscreen_buffer
 {
     // Pixels are alwasy 32-bits wide, Memory Order BB GG RR XX
     BITMAPINFO Info;
-    void *Memory;
+    u8* Memory;
     int Width;
     int Height;
     int Pitch;
@@ -49,7 +49,7 @@ struct win32_window_dimension
  */
 global bool GlobalRunning = false;
 global win32_offscreen_buffer GlobalBackbuffer;
-global int GlobalDisplayScalar = 8;
+global int GlobalDisplayScalar = 16;
 
 internal win32_window_dimension
 Win32GetWindowDimension(HWND Window)
@@ -66,9 +66,45 @@ Win32GetWindowDimension(HWND Window)
 
 
 internal void
+ClearMemory(u8* Memory, u32 NumBytes)
+{
+    for ( ; NumBytes>0; NumBytes--)
+    {
+        *Memory++ = 0;
+    }
+}
+
+
+internal void
 RenderBackbuffer(Chip* chip, win32_offscreen_buffer *Buffer)
 {
-    float ScaleFactor = GlobalDisplayScalar;
+    ClearMemory(Buffer->Memory, Buffer->Width*Buffer->Height*sizeof(u32));
+
+#if 1
+    for (int DisplayY = 0; DisplayY < chip->DisplayHeight; DisplayY++)
+    {
+        for (int DisplayX = 0; DisplayX < chip->DisplayWidth; DisplayX++)
+        {
+            if (chip->Display[DisplayY*chip->DisplayWidth + DisplayX])
+            {   
+                int BufferStartY = DisplayY*GlobalDisplayScalar;
+				int BufferStartX = DisplayX*GlobalDisplayScalar;
+
+                u32* Pixel = (u32*)Buffer->Memory + BufferStartY*Buffer->Width + BufferStartX;
+				for (int Row=0; Row<GlobalDisplayScalar; Row++)
+                {					
+                    for (int Column=0; Column<GlobalDisplayScalar; Column++)
+                    {
+                        *Pixel++ = 0xff00ffff;
+                    }
+
+                    Pixel += (u32)(0.25f*Buffer->Pitch) - GlobalDisplayScalar;
+                }
+            }
+        }
+    }
+#else
+    float ScaleFactor = 1.0f / GlobalDisplayScalar;
 
     u8* Row = (u8*)Buffer->Memory;
     for (int Y=0; Y<Buffer->Height; Y++)
@@ -76,8 +112,8 @@ RenderBackbuffer(Chip* chip, win32_offscreen_buffer *Buffer)
         u32* Pixel = (u32*)Row;
         for (int X=0; X<Buffer->Width; X++)
         {
-            int ScaleY = Y / ScaleFactor;
-            int ScaleX = X / ScaleFactor;
+            int ScaleY = Y * ScaleFactor;
+            int ScaleX = X * ScaleFactor;
 
             int DisplayIndex = ScaleY*chip->DisplayWidth + ScaleX;
             //Assert(DisplayIndex < 2048);
@@ -87,6 +123,7 @@ RenderBackbuffer(Chip* chip, win32_offscreen_buffer *Buffer)
 
         Row += Buffer->Pitch;        
     }
+#endif
 }
 
 
@@ -111,7 +148,7 @@ Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, int Width, int Height)
     Buffer->Info.bmiHeader.biCompression = BI_RGB;
 
     int BitmapMemorySize = (Buffer->Width*Buffer->Height)*BytesPerPixel;
-    Buffer->Memory = VirtualAlloc(0, BitmapMemorySize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+    Buffer->Memory = (u8*)VirtualAlloc(0, BitmapMemorySize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
     Buffer->Pitch = Width*BytesPerPixel;
 }
 

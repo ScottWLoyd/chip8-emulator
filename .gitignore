@@ -1,2 +1,4 @@
 build
 Ref
+*.sublime-project
+*.sublime-workspace
